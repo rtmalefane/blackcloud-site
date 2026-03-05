@@ -5,13 +5,6 @@
   --foreground: #171717;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -23,4 +16,456 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.galaxy-layer {
+  position: absolute;
+  inset: -20%;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: blur(0px);
+  opacity: 0.55;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Layer 1: big soft nebula */
+.galaxy-1 {
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(140, 120, 255, 0.35), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(70, 200, 255, 0.25), transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(255, 120, 200, 0.18), transparent 55%),
+    radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.06), transparent 40%);
+  animation: galaxyDrift1 16s ease-in-out infinite alternate;
+}
+
+/* Layer 2: tighter highlights */
+.galaxy-2 {
+  opacity: 0.35;
+  background-image:
+    radial-gradient(circle at 30% 50%, rgba(255, 255, 255, 0.10), transparent 35%),
+    radial-gradient(circle at 60% 40%, rgba(180, 255, 230, 0.12), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(180, 160, 255, 0.12), transparent 45%);
+  animation: galaxyDrift2 20s ease-in-out infinite alternate;
+}
+
+/* Layer 3: faint star speckle */
+.galaxy-3 {
+  opacity: 0.25;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1.5px);
+  background-size: 120px 120px;
+  animation: galaxyDrift3 22s linear infinite;
+}
+
+@keyframes galaxyDrift1 {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1.02); }
+  to   { transform: translate3d( 1.5%,  1%, 0) scale(1.06); }
+}
+
+@keyframes galaxyDrift2 {
+  from { transform: translate3d( 1%, -1.5%, 0) scale(1.02); }
+  to   { transform: translate3d(-1%,  1.5%, 0) scale(1.06); }
+}
+
+@keyframes galaxyDrift3 {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-4%, 2%, 0); }
+}
+
+/* Subtle background drift (no stretching) */
+.galaxy-pan {
+  transform: scale(1.06); /* tiny zoom prevents seeing edges while moving */
+  will-change: transform;
+  animation: galaxyPan 16s ease-in-out infinite alternate;
+}
+
+@keyframes galaxyPan {
+  from {
+    transform: translate3d(-1.2%, -0.8%, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(1.2%, 0.8%, 0) scale(1.08);
+  }
+}
+/* REAL HD galaxy image background We will get back to that. What we want now is that contact us page is changed. Look below:
+1. Background must be the same as "About" and "Projects page"
+2. remove the 1st column with contact, address and follow us on from contact us page
+3. center the form then put email and social as footer
+4. text should be changed to white(recommended) */
+
+/* REAL HD galaxy image background (recommended) */
+.galaxy-bg {
+  position: absolute;
+  inset: -8%;
+  background-image: url("/images/testing.jpg"); /* ✅ FIXED */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+    /* Keep it crisp */
+  filter: none;
+  opacity: 1;
+  /* Smooth subtle motion */
+  will-change: transform;
+  transform: translate3d(0, 0, 0) scale(1.08);
+  animation: galaxyDriftHD 12s ease-in-out infinite alternate;
+}
+
+@keyframes galaxyDriftHD {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1.08); }
+  to   { transform: translate3d( 1.5%,  1%, 0) scale(1.12); }
+}
+
+/* === Star Sparkle Overlay (NOT grain) === */
+.galaxy-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,255,255,0.9) 1px, transparent 2px),
+    radial-gradient(circle at 70% 40%, rgba(255,255,255,0.8) 1px, transparent 2px),
+    radial-gradient(circle at 40% 75%, rgba(255,255,255,0.7) 1px, transparent 2px),
+    radial-gradient(circle at 85% 65%, rgba(255,255,255,0.85) 1px, transparent 2px);
+  background-size: 520px 520px, 680px 680px, 760px 760px, 900px 900px;
+  animation: starsFloat 8s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+@keyframes starsFloat {
+  from { transform: translate3d(0, 0, 0); opacity: 0.45; }
+  to   { transform: translate3d(-0.6%, 0.4%, 0); opacity: 0.65; }
+}
+
+/* Optional: super subtle vignette to “cinema” it */
+.galaxy-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.55) 100%);
+}
+
+/* Reduce motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .galaxy-bg,
+  .galaxy-stars {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Soft fade edges into background */
+.project-tile {
+  position: relative;
+  overflow: hidden;
+  /* no borders */
+}
+
+/* Edge fade mask (supported in modern browsers) */
+.project-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /* This creates the fade */
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,1) 62%,
+    rgba(0,0,0,0) 100%
+  );
+  mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,1) 62%,
+    rgba(0,0,0,0) 100%
+  );
+
+  /* Gentle vignette + blend */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,0) 55%,
+    rgba(0,0,0,0.35) 100%
+  );
+  mix-blend-mode: multiply;
+}
+
+/* Optional: a very faint atmospheric glow to integrate with stars */
+.project-tile::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(196, 146, 42, 0.10),
+    rgba(0,0,0,0) 55%
+  );
+  opacity: 0.25;
+}
+
+.font-cormorant {
+  font-family: var(--font-cormorant), serif;
+}
+
+.font-jost {
+  font-family: var(--font-jost), sans-serif;
+}
+
+.font-raleway {
+  font-family: var(--font-raleway), sans-serif;
+}
+
+/* Soft edge fade for image tiles (blends into galaxy) */
+.soft-feather {
+  position: relative;
+  overflow: hidden;
+
+  /* tiny lift from background without a hard border */
+  box-shadow:
+    0 18px 55px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255,255,255,0.06);
+
+  /* feather the edges */
+  -webkit-mask-image: radial-gradient(closest-side, #000 78%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 78%, transparent 100%);
+}
+
+/* Optional: extra glow to reduce “sticker” feeling */
+.soft-feather::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  pointer-events: none;
+
+  /* subtle atmospheric bloom */
+  background: radial-gradient(
+    closest-side,
+    rgba(255,255,255,0.08),
+    rgba(255,255,255,0.00) 60%
+  );
+  opacity: 0.35;
+  filter: blur(10px);
+}
+
+/* === PROJECT TILE FEATHER (no border, no spotlight) === */
+.project-tile {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0; /* keep crisp */
+  
+  /* TRUE edge fade: the mask is on the whole tile (image + overlay) */
+  -webkit-mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,1) 86%,
+    rgba(0,0,0,0) 100%
+  );
+  mask-image: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,1) 86%,
+    rgba(0,0,0,0) 100%
+  );
+}
+
+/* Dark vignette only (prevents harsh sticker edges) */
+.project-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0,0,0,0) 58%,
+    rgba(0,0,0,0.55) 100%
+  );
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+}
+
+/* Slightly soften the image contrast */
+.project-tile img {
+  filter: contrast(0.95) saturate(0.98) brightness(0.98);
+}
+
+/* ═══════════════════════════════════════════════════════
+   BLACK CLOUD — INTRO STYLES
+   ═══════════════════════════════════════════════════════ */
+
+.intro-video {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  object-fit: cover;
+  object-position: center;
+  background: #000;
+  pointer-events: none;
+}
+
+.intro-logo-center {
+  position: fixed;
+  left: 50%; top: 50%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.intro-logo-img {
+  width: clamp(400px, 75vw, 1100px);
+  height: auto;
+  display: block;
+}
+
+.intro-enter {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+}
+
+.intro-enter-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top,
+    rgba(0,0,0,0.70) 0%,
+    rgba(0,0,0,0.25) 35%,
+    rgba(0,0,0,0.00) 60%
+  );
+  z-index: 1;
+}
+
+/* ── Text block — bottom-left ── */
+.intro-text-block {
+  position: absolute;
+  bottom: 28vh;
+  left: 0;
+  z-index: 3;
+  padding: 0 0 0 6vw;
+  max-width: 58vw;
+}
+
+/* Headline — big, left, 3 lines */
+.intro-headline {
+  font-family: 'Poiret One', var(--font-poiret, sans-serif) !important;
+  font-size: clamp(2.6rem, 5.5vw, 6.5rem);
+  font-weight: 400;
+  color: #4dd9f0;
+  letter-spacing: 0.08em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  will-change: transform, opacity;
+}
+
+.intro-headline span {
+  display: block;
+  background: transparent !important;
+}
+
+/* Sub — Jim Nightshade, fits on screen */
+.intro-sub {
+  margin-top: 14px;
+  font-family: 'Parisienne', cursive !important;
+  font-weight: 400;
+  font-size: clamp(1.1rem, 1.6vw, 1.8rem);
+  line-height: 1.4;
+  color: rgba(255,255,255,0.82);
+  max-width: 52vw;
+  white-space: normal;
+  background: transparent !important;
+  will-change: transform, opacity;
+}
+
+/* ── Portal — center-right, mid screen ── */
+.intro-portal-wrap {
+  position: absolute;
+  top: 42%;
+  right: 5vw;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.intro-circle-wrap {
+  position: relative;
+  width: clamp(280px, 28vw, 420px);
+  height: clamp(280px, 28vw, 420px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+}
+
+.intro-circle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  background: transparent !important;
+}
+
+.intro-circle-btn {
+  position: absolute;
+  z-index: 3;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: none;
+  background: transparent !important;
+  color: #00eeff;
+  font-family: 'Noto Serif Hentaigana', serif !important;
+  font-size: clamp(0.9rem, 2vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  width: 65%;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  text-shadow:
+    0 0 6px  rgba(0,238,255,1.0),
+    0 0 16px rgba(0,200,255,0.85),
+    0 0 35px rgba(0,160,255,0.55),
+    0 0 70px rgba(0,120,255,0.30);
+  transition: text-shadow 0.3s, letter-spacing 0.3s, color 0.3s;
+  will-change: opacity;
+}
+.intro-circle-btn:hover {
+  color: #ffffff;
+  letter-spacing: 0.45em;
+  text-shadow:
+    0 0 8px  rgba(255,255,255,1.0),
+    0 0 22px rgba(0,238,255,1.0),
+    0 0 50px rgba(0,180,255,0.8),
+    0 0 100px rgba(0,140,255,0.5);
+}
+
+.intro-portal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.intro-portal-ring {
+  position: absolute;
+  left: 50%; top: 50%;
+  border-radius: 50%;
+  border: 2px solid #4dd9f0;
+  box-shadow:
+    0 0 50px #4dd9f0,
+    0 0 100px rgba(77,217,240,0.4),
+    inset 0 0 40px rgba(77,217,240,0.15);
+}
+.intro-portal-inner {
+  position: absolute;
+  left: 50%; top: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(26,106,255,0.85) 0%,
+    rgba(77,217,240,0.35) 45%,
+    transparent 70%
+  );
 }
