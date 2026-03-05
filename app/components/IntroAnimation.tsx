@@ -204,217 +204,282 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
   }, []);
 
   // ── Portal canvas — void + ring + electric arcs + orbital particles ─────────
-  const startFlakes = useCallback(() => {
-    const cvs = enterCvsRef.current;
-    if (!cvs) return;
-    // Force layout so offsetWidth is correct
-    const rect = cvs.getBoundingClientRect();
-    const size = rect.width > 0 ? Math.round(rect.width) : 240;
-    cvs.width  = size;
-    cvs.height = size;
-    const ctx = cvs.getContext("2d") as CanvasRenderingContext2D | null;
-    if (!ctx) return;
+ const startFlakes = useCallback(() => {
+  const cvs = enterCvsRef.current;
+  if (!cvs) return;
 
-    const W = size, H = size;
-    const cx = W / 2, cy = H / 2;
-    const ringR = W * 0.40;
+  // Force layout so offsetWidth is correct
+  const rect = cvs.getBoundingClientRect();
+  const size = rect.width > 0 ? Math.round(rect.width) : 240;
+  cvs.width = size;
+  cvs.height = size;
 
-    // Helper: draw a jagged lightning bolt along a circle arc
-    function drawLightning(
-      fromAng: number, toAng: number,
-      radius: number, jag: number, alpha: number
-    ) {
-      const steps = 18;
-      const points: {x:number; y:number}[] = [];
-      for (let i = 0; i <= steps; i++) {
-        const ang  = fromAng + (toAng - fromAng) * (i / steps);
-        const r    = radius + (Math.random() - 0.5) * jag;
-        points.push({ x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r });
-      }
-      ctx.save();
-      ctx.shadowBlur  = 22;
-      ctx.shadowColor = `rgba(0,230,255,${alpha * 1.2})`;
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-      ctx.strokeStyle = `rgba(220,250,255,${alpha})`;
-      ctx.lineWidth   = 1.8;
-      ctx.stroke();
-      ctx.restore();
+  const ctx = cvs.getContext("2d");
+  if (!ctx) return;
+
+  // ✅ Non-null alias so nested functions don't trigger TS "possibly null"
+  const c = ctx;
+
+  const W = size,
+    H = size;
+  const cx = W / 2,
+    cy = H / 2;
+  const ringR = W * 0.4;
+
+  // Helper: draw a jagged lightning bolt along a circle arc
+  function drawLightning(
+    fromAng: number,
+    toAng: number,
+    radius: number,
+    jag: number,
+    alpha: number
+  ) {
+    const steps = 18;
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const ang = fromAng + (toAng - fromAng) * (i / steps);
+      const r = radius + (Math.random() - 0.5) * jag;
+      points.push({ x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r });
     }
 
-    interface Particle {
-      ang: number; orbitR: number; speed: number;
-      r: number; alpha: number;
+    c.save();
+    c.shadowBlur = 22;
+    c.shadowColor = `rgba(0,230,255,${alpha * 1.2})`;
+    c.beginPath();
+    c.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) c.lineTo(points[i].x, points[i].y);
+    c.strokeStyle = `rgba(220,250,255,${alpha})`;
+    c.lineWidth = 1.8;
+    c.stroke();
+    c.restore();
+  }
+
+  interface Particle {
+    ang: number;
+    orbitR: number;
+    speed: number;
+    r: number;
+    alpha: number;
+  }
+
+  const particles: Particle[] = [];
+  for (let i = 0; i < 140; i++) {
+    particles.push({
+      ang: Math.random() * Math.PI * 2,
+      orbitR: ringR * (0.85 + Math.random() * 0.55),
+      speed: (0.003 + Math.random() * 0.005) * (Math.random() < 0.5 ? 1 : -1),
+      r: 0.6 + Math.random() * 2.2,
+      alpha: 0.25 + Math.random() * 0.65,
+    });
+  }
+
+  // Electric arc state — occasional random arcs
+  interface Arc {
+    fromAng: number;
+    toAng: number;
+    life: number;
+    maxLife: number;
+  }
+  const arcs: Arc[] = [];
+  let t = 0;
+  let nextArcIn = 0;
+
+  function loop() {
+    c.clearRect(0, 0, W, H);
+    t += 0.016;
+
+    // ── Void ──
+    const vg = c.createRadialGradient(cx, cy, 0, cx, cy, ringR * 0.94);
+    vg.addColorStop(0, "rgba(0,1,6,0.98)");
+    vg.addColorStop(0.65, "rgba(0,4,15,0.96)");
+    vg.addColorStop(0.88, "rgba(0,12,35,0.88)");
+    vg.addColorStop(1, "rgba(0,0,0,0)");
+    c.beginPath();
+    c.arc(cx, cy, ringR * 0.94, 0, Math.PI * 2);
+    c.fillStyle = vg;
+    c.fill();
+
+    // ── Soft outer bloom — radial so it fades into nebula naturally ──
+    const bg = c.createRadialGradient(cx, cy, ringR * 0.9, cx, cy, ringR * 1.45);
+    const pulse = 0.8 + 0.2 * Math.sin(t * 1.8);
+    bg.addColorStop(0, "rgba(0,0,0,0)");
+    bg.addColorStop(0.35, `rgba(0,160,255,${0.09 * pulse})`);
+    bg.addColorStop(0.7, `rgba(0,100,200,${0.07 * pulse})`);
+    bg.addColorStop(1, "rgba(0,0,0,0)");
+    c.beginPath();
+    c.arc(cx, cy, ringR * 1.45, 0, Math.PI * 2);
+    c.fillStyle = bg;
+    c.fill();
+
+    // ── Glowing ring ──
+    c.save();
+    c.shadowBlur = 18;
+    c.shadowColor = `rgba(0,210,255,${0.75 * pulse})`;
+    c.beginPath();
+    c.arc(cx, cy, ringR, 0, Math.PI * 2);
+    c.strokeStyle = `rgba(50,215,255,${0.88 * pulse})`;
+    c.lineWidth = 1.8;
+    c.stroke();
+
+    // inner soft ring
+    c.shadowBlur = 28;
+    c.shadowColor = "rgba(0,160,255,0.35)";
+    c.beginPath();
+    c.arc(cx, cy, ringR - 3, 0, Math.PI * 2);
+    c.strokeStyle = `rgba(80,200,255,${0.28 * pulse})`;
+    c.lineWidth = 6;
+    c.stroke();
+    c.restore();
+
+    // ── Slow rotating bright arcs (constant) ──
+    for (let a = 0; a < 2; a++) {
+      const start = t * (0.25 + a * 0.12) + a * Math.PI;
+      const len = Math.PI * (0.18 + 0.08 * Math.sin(t * 0.9 + a));
+      c.save();
+      c.shadowBlur = 20;
+      c.shadowColor = "rgba(140,230,255,0.95)";
+      c.beginPath();
+      c.arc(cx, cy, ringR, start, start + len);
+      c.strokeStyle = `rgba(200,245,255,${0.7 + 0.25 * Math.sin(t * 2 + a)})`;
+      c.lineWidth = 2.5;
+      c.stroke();
+      c.restore();
     }
-    const particles: Particle[] = [];
-    for (let i = 0; i < 140; i++) {
-      particles.push({
-        ang:    Math.random() * Math.PI * 2,
-        orbitR: ringR * (0.85 + Math.random() * 0.55),
-        speed:  (0.003 + Math.random() * 0.005) * (Math.random() < 0.5 ? 1 : -1),
-        r:      0.6 + Math.random() * 2.2,
-        alpha:  0.25 + Math.random() * 0.65,
+
+    // ── Electric arcs — frequent, bright, branching ──
+    nextArcIn -= 1;
+    if (nextArcIn <= 0) {
+      const baseAng = Math.random() * Math.PI * 2;
+      const span = 0.4 + Math.random() * 1.2;
+
+      // Main arc
+      arcs.push({
+        fromAng: baseAng,
+        toAng: baseAng + span,
+        life: 0,
+        maxLife: 5 + Math.floor(Math.random() * 7),
       });
+
+      // Always spawn 1-3 branches
+      const branchCount = 1 + Math.floor(Math.random() * 3);
+      for (let b = 0; b < branchCount; b++) {
+        const bStart = baseAng + span * (0.2 + Math.random() * 0.6);
+        arcs.push({
+          fromAng: bStart,
+          toAng: bStart + 0.15 + Math.random() * 0.5,
+          life: 0,
+          maxLife: 3 + Math.floor(Math.random() * 4),
+        });
+      }
+
+      // Occasionally a big dramatic arc spanning half the ring
+      if (Math.random() < 0.3) {
+        const bigAng = Math.random() * Math.PI * 2;
+        arcs.push({
+          fromAng: bigAng,
+          toAng: bigAng + Math.PI * (0.5 + Math.random() * 0.8),
+          life: 0,
+          maxLife: 4 + Math.floor(Math.random() * 5),
+        });
+      }
+
+      nextArcIn = 6 + Math.floor(Math.random() * 14); // much more frequent
     }
 
-    // Electric arc state — occasional random arcs
-    interface Arc { fromAng: number; toAng: number; life: number; maxLife: number; }
-    const arcs: Arc[] = [];
-    let t = 0;
-    let nextArcIn = 0;
+    for (let i = arcs.length - 1; i >= 0; i--) {
+      const arc = arcs[i];
+      const progress = arc.life / arc.maxLife;
+      const arcAlpha =
+        progress < 0.25 ? progress / 0.25 : 1 - (progress - 0.25) / 0.75;
 
-    function loop() {
-      ctx.clearRect(0, 0, W, H);
-      t += 0.016;
+      // Draw twice for intensity — once thick+bright, once thin+white core
+      drawLightning(
+        arc.fromAng,
+        arc.toAng,
+        ringR,
+        7 + Math.random() * 6,
+        arcAlpha * (0.85 + 0.15 * Math.random())
+      );
+      drawLightning(
+        arc.fromAng,
+        arc.toAng,
+        ringR,
+        2 + Math.random() * 2,
+        arcAlpha * 0.95
+      );
 
-      // ── Void ──
-      const vg = ctx.createRadialGradient(cx, cy, 0, cx, cy, ringR * 0.94);
-      vg.addColorStop(0,    "rgba(0,1,6,0.98)");
-      vg.addColorStop(0.65, "rgba(0,4,15,0.96)");
-      vg.addColorStop(0.88, "rgba(0,12,35,0.88)");
-      vg.addColorStop(1,    "rgba(0,0,0,0)");
-      ctx.beginPath();
-      ctx.arc(cx, cy, ringR * 0.94, 0, Math.PI * 2);
-      ctx.fillStyle = vg; ctx.fill();
-
-      // ── Soft outer bloom — radial so it fades into nebula naturally ──
-      const bg = ctx.createRadialGradient(cx, cy, ringR * 0.9, cx, cy, ringR * 1.45);
-      const pulse = 0.8 + 0.2 * Math.sin(t * 1.8);
-      bg.addColorStop(0,   "rgba(0,0,0,0)");
-      bg.addColorStop(0.35, `rgba(0,160,255,${0.09 * pulse})`);
-      bg.addColorStop(0.7,  `rgba(0,100,200,${0.07 * pulse})`);
-      bg.addColorStop(1,    "rgba(0,0,0,0)");
-      ctx.beginPath();
-      ctx.arc(cx, cy, ringR * 1.45, 0, Math.PI * 2);
-      ctx.fillStyle = bg; ctx.fill();
-
-      // ── Glowing ring ──
-      ctx.save();
-      ctx.shadowBlur  = 18;
-      ctx.shadowColor = `rgba(0,210,255,${0.75 * pulse})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(50,215,255,${0.88 * pulse})`;
-      ctx.lineWidth   = 1.8;
-      ctx.stroke();
-      // inner soft ring
-      ctx.shadowBlur  = 28;
-      ctx.shadowColor = `rgba(0,160,255,0.35)`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, ringR - 3, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(80,200,255,${0.28 * pulse})`;
-      ctx.lineWidth   = 6;
-      ctx.stroke();
-      ctx.restore();
-
-      // ── Slow rotating bright arcs (constant) ──
-      for (let a = 0; a < 2; a++) {
-        const start = t * (0.25 + a * 0.12) + a * Math.PI;
-        const len   = Math.PI * (0.18 + 0.08 * Math.sin(t * 0.9 + a));
-        ctx.save();
-        ctx.shadowBlur  = 20;
-        ctx.shadowColor = "rgba(140,230,255,0.95)";
-        ctx.beginPath();
-        ctx.arc(cx, cy, ringR, start, start + len);
-        ctx.strokeStyle = `rgba(200,245,255,${0.7 + 0.25 * Math.sin(t * 2 + a)})`;
-        ctx.lineWidth   = 2.5;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // ── Electric arcs — frequent, bright, branching ──
-      nextArcIn -= 1;
-      if (nextArcIn <= 0) {
-        const baseAng = Math.random() * Math.PI * 2;
-        const span    = 0.4 + Math.random() * 1.2;
-        // Main arc
-        arcs.push({ fromAng: baseAng, toAng: baseAng + span,
-                    life: 0, maxLife: 5 + Math.floor(Math.random() * 7) });
-        // Always spawn 1-3 branches
-        const branchCount = 1 + Math.floor(Math.random() * 3);
-        for (let b = 0; b < branchCount; b++) {
-          const bStart = baseAng + span * (0.2 + Math.random() * 0.6);
-          arcs.push({ fromAng: bStart,
-                      toAng: bStart + 0.15 + Math.random() * 0.5,
-                      life: 0, maxLife: 3 + Math.floor(Math.random() * 4) });
-        }
-        // Occasionally a big dramatic arc spanning half the ring
-        if (Math.random() < 0.3) {
-          const bigAng = Math.random() * Math.PI * 2;
-          arcs.push({ fromAng: bigAng, toAng: bigAng + Math.PI * (0.5 + Math.random() * 0.8),
-                      life: 0, maxLife: 4 + Math.floor(Math.random() * 5) });
-        }
-        nextArcIn = 6 + Math.floor(Math.random() * 14); // much more frequent
-      }
-      for (let i = arcs.length - 1; i >= 0; i--) {
-        const arc = arcs[i];
-        const progress = arc.life / arc.maxLife;
-        const arcAlpha = progress < 0.25
-          ? progress / 0.25
-          : 1 - (progress - 0.25) / 0.75;
-        // Draw twice for intensity — once thick+bright, once thin+white core
-        drawLightning(arc.fromAng, arc.toAng, ringR, 7 + Math.random() * 6,
-                      arcAlpha * (0.85 + 0.15 * Math.random()));
-        drawLightning(arc.fromAng, arc.toAng, ringR, 2 + Math.random() * 2,
-                      arcAlpha * 0.95);
-        arc.life++;
-        if (arc.life >= arc.maxLife) arcs.splice(i, 1);
-      }
-
-      // ── Orbital particles ──
-      for (const p of particles) {
-        p.ang += p.speed;
-        const px = cx + Math.cos(p.ang) * p.orbitR;
-        const py = cy + Math.sin(p.ang) * p.orbitR;
-        const distFromRing = Math.abs(p.orbitR - ringR) / (ringR * 0.55);
-        const fade = Math.max(0, 1 - distFromRing);
-        const a    = p.alpha * fade;
-        if (a <= 0) continue;
-        const g = ctx.createRadialGradient(px, py, 0, px, py, p.r * 2.2);
-        g.addColorStop(0,   `rgba(210,240,255,${a})`);
-        g.addColorStop(0.45,`rgba(60,190,255,${a * 0.65})`);
-        g.addColorStop(1,   "rgba(0,80,200,0)");
-        ctx.beginPath();
-        ctx.arc(px, py, p.r * 2.2, 0, Math.PI * 2);
-        ctx.fillStyle = g; ctx.fill();
-      }
-
-      // ── Outward electricity strikes from ring ──
-      const strikeCount = Math.random() < 0.15 ? 3 : Math.random() < 0.35 ? 2 : 1;
-      if (Math.random() < 0.12) {
-        for (let sk = 0; sk < strikeCount; sk++) {
-          const strikeAng = Math.random() * Math.PI * 2;
-          const strikeLen = ringR * (0.2 + Math.random() * 0.55);
-          const steps = 12;
-          ctx.save();
-          ctx.shadowBlur  = 22 + Math.random() * 16;
-          ctx.shadowColor = "rgba(0,230,255,0.98)";
-          ctx.strokeStyle = `rgba(${180 + Math.floor(Math.random()*75)},245,255,${0.6 + Math.random() * 0.4})`;
-          ctx.lineWidth   = 0.8 + Math.random() * 1.8;
-          ctx.beginPath();
-          let rx = cx + Math.cos(strikeAng) * ringR;
-          let ry = cy + Math.sin(strikeAng) * ringR;
-          ctx.moveTo(rx, ry);
-          for (let si = 0; si < steps; si++) {
-            const sf = (si + 1) / steps;
-            rx = cx + Math.cos(strikeAng) * (ringR + strikeLen * sf) + (Math.random() - 0.5) * (8 + sf * 10);
-            ry = cy + Math.sin(strikeAng) * (ringR + strikeLen * sf) + (Math.random() - 0.5) * (8 + sf * 10);
-            ctx.lineTo(rx, ry);
-          }
-          ctx.stroke();
-          // Bright white core
-          ctx.lineWidth = 0.5;
-          ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.4})`;
-          ctx.stroke();
-          ctx.restore();
-        }
-      }
-
-      enterRafRef.current = requestAnimationFrame(loop);
+      arc.life++;
+      if (arc.life >= arc.maxLife) arcs.splice(i, 1);
     }
-    loop();
-  }, []);
+
+    // ── Orbital particles ──
+    for (const p of particles) {
+      p.ang += p.speed;
+      const px = cx + Math.cos(p.ang) * p.orbitR;
+      const py = cy + Math.sin(p.ang) * p.orbitR;
+      const distFromRing = Math.abs(p.orbitR - ringR) / (ringR * 0.55);
+      const fade = Math.max(0, 1 - distFromRing);
+      const a = p.alpha * fade;
+      if (a <= 0) continue;
+
+      const g = c.createRadialGradient(px, py, 0, px, py, p.r * 2.2);
+      g.addColorStop(0, `rgba(210,240,255,${a})`);
+      g.addColorStop(0.45, `rgba(60,190,255,${a * 0.65})`);
+      g.addColorStop(1, "rgba(0,80,200,0)");
+
+      c.beginPath();
+      c.arc(px, py, p.r * 2.2, 0, Math.PI * 2);
+      c.fillStyle = g;
+      c.fill();
+    }
+
+    // ── Outward electricity strikes from ring ──
+    const strikeCount = Math.random() < 0.15 ? 3 : Math.random() < 0.35 ? 2 : 1;
+    if (Math.random() < 0.12) {
+      for (let sk = 0; sk < strikeCount; sk++) {
+        const strikeAng = Math.random() * Math.PI * 2;
+        const strikeLen = ringR * (0.2 + Math.random() * 0.55);
+        const steps = 12;
+
+        c.save();
+        c.shadowBlur = 22 + Math.random() * 16;
+        c.shadowColor = "rgba(0,230,255,0.98)";
+        c.strokeStyle = `rgba(${
+          180 + Math.floor(Math.random() * 75)
+        },245,255,${0.6 + Math.random() * 0.4})`;
+        c.lineWidth = 0.8 + Math.random() * 1.8;
+        c.beginPath();
+
+        let rx = cx + Math.cos(strikeAng) * ringR;
+        let ry = cy + Math.sin(strikeAng) * ringR;
+        c.moveTo(rx, ry);
+        for (let si = 0; si < steps; si++) {
+          const sf = (si + 1) / steps;
+          rx =
+            cx +
+            Math.cos(strikeAng) * (ringR + strikeLen * sf) +
+            (Math.random() - 0.5) * (8 + sf * 10);
+          ry =
+            cy +
+            Math.sin(strikeAng) * (ringR + strikeLen * sf) +
+            (Math.random() - 0.5) * (8 + sf * 10);
+          c.lineTo(rx, ry);
+        }
+        c.stroke();
+
+        // Bright white core
+        c.lineWidth = 0.5;
+        c.strokeStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.4})`;
+        c.stroke();
+        c.restore();
+      }
+    }
+
+    enterRafRef.current = requestAnimationFrame(loop);
+  }
+
+  loop();
+}, []);
 
   // ── Main RAF loop ──────────────────────────────────────────────────────────
   const tick = useCallback((now: number) => {
