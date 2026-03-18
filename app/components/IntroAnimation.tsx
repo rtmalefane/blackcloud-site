@@ -77,13 +77,12 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
     if (el) Object.assign(el.style, p);
   };
 
-  // Hide header
+  // Hide header immediately — before any render flash
+  // Using both opacity AND visibility so it's truly invisible before JS runs
   useEffect(() => {
     const h = document.querySelector("header") as HTMLElement | null;
     if (!h) return;
-    h.style.transition = "none";
-    h.style.opacity = "0";
-    h.style.pointerEvents = "none";
+    h.style.cssText = "opacity:0;pointer-events:none;transition:none;";
   }, []);
 
   // Canvas resize
@@ -99,39 +98,50 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Start videos — wait for canplaythrough to avoid Vercel/mobile glitch
+  // Start videos — robust for Vercel/mobile cold loads
   useEffect(() => {
     const space  = spaceRef.current;
     const galaxy = galaxyRef.current;
     if (!space || !galaxy) return;
 
-    // Space video: preload fully, then play
-    space.src        = "/images/v2-space.mp4";
-    space.muted      = true;
+    // Space: set src then load — play as soon as any data available
+    space.src         = "/images/v2-space.mp4";
+    space.muted       = true;
     space.playsInline = true;
-    space.preload    = "auto";
-
-    const playSpace = () => space.play().catch(() => {});
-    // On desktop readyState may already be enough; on mobile wait for event
-    if (space.readyState >= 3) {
-      playSpace();
-    } else {
-      space.addEventListener("canplay", playSpace, { once: true });
-    }
+    space.preload     = "auto";
     space.load();
 
-    // Galaxy: preload and buffer — play/pause so first frame is decoded
-    galaxy.src        = "/images/enter-galaxy.mp4";
-    galaxy.muted      = true;
+    const tryPlaySpace = () => {
+      space.play().catch(() => {
+        // Retry once after 500ms if first attempt fails (common on mobile)
+        setTimeout(() => space.play().catch(() => {}), 500);
+      });
+    };
+
+    if (space.readyState >= 2) {
+      tryPlaySpace();
+    } else {
+      space.addEventListener("canplay", tryPlaySpace, { once: true });
+      // Hard fallback — start RAF loop anyway after 1s so animation doesn't freeze
+      setTimeout(() => {
+        if (space.paused) tryPlaySpace();
+      }, 1000);
+    }
+
+    // Galaxy: preload fully so it's ready when iris opens at ~9s
+    galaxy.src         = "/images/enter-galaxy.mp4";
+    galaxy.muted       = true;
     galaxy.playsInline = true;
-    galaxy.loop       = true;
-    galaxy.preload    = "auto";
+    galaxy.loop        = true;
+    galaxy.preload     = "auto";
     galaxy.load();
-    const bufferGalaxy = () => galaxy.play().then(() => galaxy.pause()).catch(() => {});
+    const bufferGalaxy = () => {
+      galaxy.play().then(() => galaxy.pause()).catch(() => {});
+    };
     galaxy.addEventListener("canplay", bufferGalaxy, { once: true });
 
     return () => {
-      space.removeEventListener("canplay", playSpace);
+      space.removeEventListener("canplay", tryPlaySpace);
       galaxy.removeEventListener("canplay", bufferGalaxy);
     };
   }, []);
@@ -684,25 +694,57 @@ export default function IntroAnimation({ onDone }: { onDone: () => void }) {
     // ── PHASE B: Crossfade to tunnel (300ms) ─────────────────────────────────
     function startTunnel() {
       tunnelVid.currentTime = 0;
-      tunnelVid.play().catch(() => {});
 
-      const XFADE = 300;
-      let xT0 = 0;
-      function crossFade(now: number) {
-        if (!xT0) xT0 = now;
-        const t = Math.min((now - xT0) / XFADE, 1);
-        const e = 1 - (1-t)*(1-t);
-        fx.style.opacity        = String(1 - e);
-        tunnelVid.style.opacity = String(e);
-        if (t < 1) { requestAnimationFrame(crossFade); }
-        else {
-          fx.style.opacity = "0";
-          tunnelVid.style.opacity = "1";
-          ctx.clearRect(0, 0, W, H);
-          setTimeout(startActionFlick, 1700);
+      const beginCrossfade = () => {
+        const XFADE = 300;
+        let xT0 = 0;
+        function crossFade(now: number) {
+          if (!xT0) xT0 = now;
+          const t = Math.min((now - xT0) / XFADE, 1);
+          const e = 1 - (1-t)*(1-t);
+          fx.style.opacity        = String(1 - e);
+          tunnelVid.style.opacity = String(e);
+          if (t < 1) { requestAnimationFrame(crossFade); }
+          else {
+            fx.style.opacity        = "0";
+            tunnelVid.style.opacity = "1";
+            ctx.clearRect(0, 0, W, H);
+            setTimeout(startActionFlick, 1700);
+          }
         }
+        requestAnimationFrame(crossFade);
+      };
+
+      // If already buffered, start immediately. Otherwise wait for canplay.
+      if (tunnelVid.readyState >= 3) {
+        tunnelVid.play().catch(() => {});
+        beginCrossfade();
+      } else {
+        const onReady = () => {
+          tunnelVid.play().catch(() => {});
+          beginCrossfade();
+        };
+        tunnelVid.addEventListener("canplay", onReady, { once: true });
+        tunnelVid.load();
+        // Hard bail after 2s — skip tunnel if it never loads
+        setTimeout(() => {
+          if (tunnelVid.paused && tunnelVid.readyState < 2) {
+            tunnelVid.removeEventListener("canplay", onReady);
+            // Fade directly to black and finish
+            let bt0 = 0;
+            function bailFade(now: number) {
+              if (!bt0) bt0 = now;
+              const bp = Math.min((now - bt0) / 600, 1);
+              ctx.clearRect(0, 0, W, H);
+              ctx.fillStyle = `rgba(0,0,0,${bp})`;
+              ctx.fillRect(0, 0, W, H);
+              fx.style.opacity = "1";
+              if (bp < 1) { requestAnimationFrame(bailFade); } else { finish(); }
+            }
+            requestAnimationFrame(bailFade);
+          }
+        }, 2000);
       }
-      requestAnimationFrame(crossFade);
     }
 
     // ── PHASE C: Action Flick (420ms) → smooth fade to black → home ─────────

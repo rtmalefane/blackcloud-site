@@ -18,6 +18,14 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Header hidden by default — IntroAnimation JS restores it after animation.
+   This prevents the flash of header before JS useEffect runs on Vercel. */
+header {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
 .galaxy-layer {
   position: absolute;
   inset: -20%;
